@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkLog — Delta Metrology</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --bg-card: #141720;
+    --bg-input: #1a1d27;
+    --bg-hover: #1e2230;
+    --border: rgba(255,255,255,0.07);
+    --border-active: rgba(255,255,255,0.15);
+    --text-primary: #e8eaf0;
+    --text-secondary: #8b90a0;
+    --text-muted: #555a6e;
+    --accent: #4f8ef7;
+    --accent-dim: rgba(79,142,247,0.12);
+    --accent-hover: #6ba3ff;
+    --success: #34d399;
+    --success-dim: rgba(52,211,153,0.12);
+    --warning: #fbbf24;
+    --warning-dim: rgba(251,191,36,0.1);
+    --danger: #f87171;
+    --danger-dim: rgba(248,113,113,0.1);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.1);
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --sidebar-w: 220px;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Layout */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+  }
+  .main { margin-left: var(--sidebar-w); flex: 1; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar-logo {
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-mark {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
+    color: var(--text-primary);
+  }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff;
+    font-family: var(--font-mono);
+  }
+  .logo-sub {
+    font-size: 10px; color: var(--text-muted);
+    font-family: var(--font-mono); margin-top: 1px;
+    letter-spacing: 0.05em;
+  }
+  .sidebar-nav { flex: 1; padding: 12px 10px; }
+  .nav-section-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+    color: var(--text-muted); text-transform: uppercase;
+    padding: 12px 8px 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px;
+    cursor: pointer; color: var(--text-secondary);
+    font-size: 13px; font-weight: 500;
+    transition: all 0.15s; margin-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .nav-item.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: rgba(79,142,247,0.2);
+  }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 14px 14px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .user-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px;
+    background: var(--bg-input);
+  }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .avatar-admin { background: var(--accent-dim); color: var(--accent); }
+  .avatar-emp { background: var(--success-dim); color: var(--success); }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-role {
+    font-size: 10px; color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  .btn-logout {
+    background: none; border: none;
+    color: var(--text-muted); cursor: pointer;
+    font-size: 16px; padding: 2px;
+    transition: color 0.15s;
+  }
+  .btn-logout:hover { color: var(--danger); }
+
+  /* Top bar */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .topbar-title { font-size: 16px; font-weight: 600; }
+  .topbar-meta { font-size: 12px; color: var(--text-muted); margin-top: 1px; font-family: var(--font-mono); }
+  .page-content { padding: 24px 28px; max-width: 1200px; }
+
+  /* Cards */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 500; }
+  .stat-value { font-size: 26px; font-weight: 600; font-family: var(--font-mono); }
+  .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .stat-accent { color: var(--accent); }
+  .stat-success { color: var(--success); }
+  .stat-warning { color: var(--warning); }
+  .stat-purple { color: var(--purple); }
+
+  /* Forms */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+  input, select, textarea {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    background: rgba(79,142,247,0.04);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  select option { background: #1a1d27; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; border: none;
+    font-family: var(--font-body);
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-active); }
+  .btn-success { background: var(--success-dim); color: var(--success); }
+  .btn-success:hover { background: rgba(52,211,153,0.2); }
+  .btn-danger-ghost { background: transparent; color: var(--danger); border: 1px solid var(--border); }
+  .btn-danger-ghost:hover { background: var(--danger-dim); border-color: rgba(248,113,113,0.3); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-muted);
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 11px 14px; font-size: 13px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: var(--text-primary);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-muted { color: var(--text-secondary); }
+  .td-mono { font-family: var(--font-mono); font-size: 12px; }
+
+  /* Badge */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .badge-blue { background: var(--accent-dim); color: var(--accent); }
+  .badge-green { background: var(--success-dim); color: var(--success); }
+  .badge-amber { background: var(--warning-dim); color: var(--warning); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); }
+  .badge-red { background: var(--danger-dim); color: var(--danger); }
+
+  /* Filters row */
+  .filters-row {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 18px;
+  }
+  .filters-row input, .filters-row select {
+    flex: 1; min-width: 140px; max-width: 220px;
+  }
+
+  /* Auth screen */
+  .auth-screen {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    padding: 20px;
+  }
+  .auth-box {
+    width: 100%; max-width: 380px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 36px 32px;
+  }
+  .auth-logo { text-align: center; margin-bottom: 28px; }
+  .auth-logo-icon {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 700;
+    color: #fff; font-family: var(--font-mono);
+    margin: 0 auto 10px;
+  }
+  .auth-title { font-size: 18px; font-weight: 600; text-align: center; }
+  .auth-sub { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 4px; font-family: var(--font-mono); }
+  .auth-form { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+  .auth-switch { text-align: center; margin-top: 16px; font-size: 12px; color: var(--text-muted); }
+  .auth-switch a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .auth-switch a:hover { text-decoration: underline; }
+  .demo-pills { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .demo-pill {
+    flex: 1; min-width: 120px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .demo-pill:hover { border-color: var(--accent); background: var(--accent-dim); }
+  .demo-pill-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .demo-pill-name { font-size: 12px; font-weight: 600; margin-top: 2px; }
+
+  /* Alert */
+  .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+  .alert-danger { background: var(--danger-dim); color: var(--danger); border: 1px solid rgba(248,113,113,0.2); }
+  .alert-success { background: var(--success-dim); color: var(--success); border: 1px solid rgba(52,211,153,0.2); }
+  .alert-info { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,142,247,0.2); }
+
+  /* Progress bar */
+  .progress-bar { height: 4px; background: var(--bg-input); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; transition: width 0.3s; }
+
+  /* Empty state */
+  .empty-state {
+    padding: 40px 20px; text-align: center;
+    color: var(--text-muted);
+  }
+  .empty-state-icon { font-size: 32px; margin-bottom: 10px; }
+  .empty-state-text { font-size: 13px; }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .main { margin-left: 0; }
+    .page-content { padding: 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Tab bar */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab-btn {
+    padding: 7px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1px solid transparent;
+    background: transparent; color: var(--text-muted);
+    font-family: var(--font-body); transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+  .tab-btn.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(79,142,247,0.2); }
+
+  /* Inline edit */
+  .edit-row-active td { background: rgba(79,142,247,0.04) !important; }
+  .action-btns { display: flex; gap: 6px; }
+
+  /* Summary table */
+  .summary-row-total td { font-weight: 600; color: var(--text-primary); border-top: 1px solid var(--border) !important; }
+
+  /* Divider */
+  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ─── DATA LAYER (localStorage) ───────────────────────────────────────────────
+
+const DB = {
+  get: (k) => { try { return JSON.parse(localStorage.getItem('wl_' + k) || 'null'); } catch { return null; } },
+  set: (k, v) => localStorage.setItem('wl_' + k, JSON.stringify(v)),
+
+  users() { return DB.get('users') || []; },
+  setUsers(u) { DB.set('users', u); },
+
+  logs() { return DB.get('logs') || []; },
+  setLogs(l) { DB.set('logs', l); },
+
+  projects() { return DB.get('projects') || ['CMM Inspection', 'Calibration', 'TPI - Tata Motors', 'TPI - Bosch', 'QMS Audit', 'Dimensional Inspection', 'Aerospace Inspection', 'Defence Project']; },
+  setProjects(p) { DB.set('projects', p); },
+
+  session() { return DB.get('session'); },
+  setSession(s) { DB.set('session', s); },
+  clearSession() { localStorage.removeItem('wl_session'); },
+};
+
+// Seed demo data
+function seedDemoData() {
+  if (DB.get('seeded')) return;
+
+  const users = [
+    { id: 'u1', name: 'Harshad Patil', email: 'admin@deltametrology.in', password: 'admin123', role: 'admin' },
+    { id: 'u2', name: 'Rahul Deshmukh', email: 'rahul@deltametrology.in', password: 'emp123', role: 'employee' },
+    { id: 'u3', name: 'Priya Kulkarni', email: 'priya@deltametrology.in', password: 'emp123', role: 'employee' },
+    { id: 'u4', name: 'Amit Shinde', email: 'amit@deltametrology.in', password: 'emp123', role: 'employee' },
+  ];
+  DB.setUsers(users);
+
+  const today = new Date();
+  const logs = [];
+  let lid = 1;
+  const projects = DB.projects();
+
+  for (let daysBack = 0; daysBack < 30; daysBack++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - daysBack);
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+    const dateStr = d.toISOString().split('T')[0];
+
+    users.filter(u => u.role === 'employee').forEach((u, ui) => {
+      const proj = projects[(lid + ui) % projects.length];
+      const hrs = [6, 7, 8, 7.5, 6.5][lid % 5];
+      logs.push({
+        id: 'l' + lid++,
+        userId: u.id,
+        userName: u.name,
+        date: dateStr,
+        project: proj,
+        task: ['Inspection of components', 'Calibration activity', 'Report preparation', 'Client site visit', 'Documentation review'][(lid) % 5],
+        hours: hrs,
+        remarks: lid % 4 === 0 ? 'Overtime approved' : '',
+        createdAt: d.toISOString(),
+      });
+    });
+  }
+  DB.setLogs(logs);
+  DB.set('seeded', true);
+}
+seedDemoData();
+
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
+
+const genId = () => Math.random().toString(36).slice(2, 10);
+const today = () => new Date().toISOString().split('T')[0];
+const fmtDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const fmtHours = (h) => Number(h).toFixed(1) + ' h';
+
+function initials(name) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function getMonthRange(year, month) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`;
+  const end = new Date(year, month, 0).toISOString().split('T')[0];
+  return { start, end };
+}
+
+function exportXLSX(logs, filename) {
+  const rows = logs.map(l => ({
+    'Employee Name': l.userName,
+    'Date': fmtDate(l.date),
+    'Project': l.project,
+    'Task Description': l.task,
+    'Hours Worked': Number(l.hours),
+    'Remarks': l.remarks || '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{ wch: 20 }, { wch: 14 }, { wch: 24 }, { wch: 40 }, { wch: 14 }, { wch: 20 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Work Logs');
+  XLSX.writeFile(wb, filename);
+}
+
+function exportCSV(logs, filename) {
+  const header = ['Employee Name', 'Date', 'Project', 'Task Description', 'Hours Worked', 'Remarks'];
+  const rows = logs.map(l => [
+    `"${l.userName}"`, `"${fmtDate(l.date)}"`, `"${l.project}"`,
+    `"${l.task.replace(/"/g, '""')}"`, l.hours, `"${l.remarks || ''}"`
+  ]);
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// ─── HOOKS ───────────────────────────────────────────────────────────────────
+
+const { useState, useEffect, useCallback } = React;
+
+function useForceUpdate() {
+  const [, s] = useState(0);
+  return () => s(v => v + 1);
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+
+function AuthScreen({ onLogin }) {
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+
+  function loginAs(u) {
+    setEmail(u.email); setPw(u.password);
+  }
+
+  function handleLogin(e) {
+    e.preventDefault(); setError('');
+    const users = DB.users();
+    const u = users.find(x => x.email === email && x.password === pw);
+    if (!u) return setError('Invalid email or password.');
+    DB.setSession(u);
+    onLogin(u);
+  }
+
+  function handleSignup(e) {
+    e.preventDefault(); setError('');
+    if (!name || !email || !pw) return setError('All fields required.');
+    const users = DB.users();
+    if (users.find(x => x.email === email)) return setError('Email already registered.');
+    const u = { id: genId(), name, email, password: pw, role: 'employee' };
+    DB.setUsers([...users, u]);
+    DB.setSession(u);
+    onLogin(u);
+  }
+
+  const demos = [
+    { label: 'Admin / HR', name: 'Harshad Patil', email: 'admin@deltametrology.in', password: 'admin123' },
+    { label: 'Employee', name: 'Rahul Deshmukh', email: 'rahul@deltametrology.in', password: 'emp123' },
+  ];
+
+  return (
+    <div className="auth-screen">
+      <div className="auth-box">
+        <div className="auth-logo">
+          <div className="auth-logo-icon">W</div>
+          <div className="auth-title">WorkLog</div>
+          <div className="auth-sub">delta metrology internal</div>
+        </div>
+
+        <div className="demo-pills">
+          {demos.map(d => (
+            <div key={d.email} className="demo-pill" onClick={() => loginAs(d)}>
+              <div className="demo-pill-label">{d.label}</div>
+              <div className="demo-pill-name">{d.name}</div>
+            </div>
+          ))}
+        </div>
+
+        {error && <div className="alert alert-danger">{error}</div>}
+
+        <form className="auth-form" onSubmit={mode === 'login' ? handleLogin : handleSignup}>
+          {mode === 'signup' && (
+            <div className="form-group">
+              <label>Full Name</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
+            </div>
+          )}
+          <div className="form-group">
+            <label>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@deltametrology.in" />
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="••••••••" />
+          </div>
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+            {mode === 'login' ? '→ Sign in' : '→ Create account'}
+          </button>
+        </form>
+
+        <div className="auth-switch">
+          {mode === 'login'
+            ? <span>New employee? <a onClick={() => { setMode('signup'); setError(''); }}>Create account</a></span>
+            : <span>Have an account? <a onClick={() => { setMode('login'); setError(''); }}>Sign in</a></span>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
+
+const EMP_NAV = [
+  { id: 'log', label: 'Log Work', icon: '✎' },
+  { id: 'history', label: 'My History', icon: '◷' },
+];
+const ADMIN_NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
+  { id: 'entries', label: 'All Entries', icon: '≡' },
+  { id: 'reports', label: 'Reports', icon: '⊕' },
+  { id: 'employees', label: 'Employees', icon: '◉' },
+];
+
+function Sidebar({ user, page, onPage, onLogout }) {
+  const nav = user.role === 'admin' ? ADMIN_NAV : EMP_NAV;
+  const avClass = user.role === 'admin' ? 'avatar-admin' : 'avatar-emp';
+  return (
+    <div className="sidebar">
+      <div className="sidebar-logo">
+        <div className="logo-mark">
+          <div className="logo-icon">W</div>
+          <div>
+            <div>WorkLog</div>
+            <div className="logo-sub">delta metrology</div>
+          </div>
+        </div>
+      </div>
+      <div className="sidebar-nav">
+        <div className="nav-section-label">Menu</div>
+        {nav.map(n => (
+          <div key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => onPage(n.id)}>
+            <span className="nav-icon">{n.icon}</span>
+            {n.label}
+          </div>
+        ))}
+      </div>
+      <div className="sidebar-footer">
+        <div className="user-chip">
+          <div className={`avatar ${avClass}`}>{initials(user.name)}</div>
+          <div className="user-info">
+            <div className="user-name">{user.name}</div>
+            <div className="user-role">{user.role}</div>
+          </div>
+          <button className="btn-logout" onClick={onLogout} title="Logout">⏏</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── LOG WORK FORM ────────────────────────────────────────────────────────────
+
+function LogWork({ user }) {
+  const todayStr = today();
+  const [date, setDate] = useState(todayStr);
+  const [project, setProject] = useState('');
+  const [task, setTask] = useState('');
+  const [hours, setHours] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [msg, setMsg] = useState('');
+  const [editId, setEditId] = useState(null);
+
+  const projects = DB.projects();
+  const logs = DB.logs().filter(l => l.userId === user.id && l.date === todayStr);
+
+  // If today's entry exists, pre-fill for editing
+  function loadEdit(log) {
+    setEditId(log.id);
+    setProject(log.project);
+    setTask(log.task);
+    setHours(String(log.hours));
+    setRemarks(log.remarks || '');
+    setMsg('');
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!project || !task || !hours) return setMsg('error:Fill all required fields.');
+    const h = parseFloat(hours);
+    if (isNaN(h) || h <= 0 || h > 24) return setMsg('error:Enter valid hours (0.5 – 24).');
+
+    const allLogs = DB.logs();
+    if (editId) {
+      const idx = allLogs.findIndex(l => l.id === editId);
+      if (idx !== -1) {
+        allLogs[idx] = { ...allLogs[idx], project, task, hours: h, remarks };
+        DB.setLogs(allLogs);
+        setMsg('ok:Entry updated successfully.');
+      }
+      setEditId(null);
+    } else {
+      const existing = allLogs.find(l => l.userId === user.id && l.date === date && !editId);
+      if (existing) return setMsg('error:You already have an entry for this date. Edit it below.');
+      const log = { id: genId(), userId: user.id, userName: user.name, date, project, task, hours: h, remarks, createdAt: new Date().toISOString() };
+      DB.setLogs([...allLogs, log]);
+      setMsg('ok:Work logged successfully!');
+    }
+    setProject(''); setTask(''); setHours(''); setRemarks('');
+    setTimeout(() => setMsg(''), 4000);
+  }
+
+  const isToday = date === todayStr;
+  const canEdit = isToday;
+
+  return (
+    <div className="page-content">
+      <div className="card" style={{ maxWidth: 640 }}>
+        <div className="card-header">
+          <span className="card-title">{editId ? 'Edit Entry' : 'Log Today\'s Work'}</span>
+          {editId && <button className="btn btn-ghost btn-sm" onClick={() => { setEditId(null); setProject(''); setTask(''); setHours(''); setRemarks(''); }}>Cancel</button>}
+        </div>
+
+        {msg && <div className={`alert ${msg.startsWith('ok:') ? 'alert-success' : 'alert-danger'}`}>{msg.replace(/^(ok|error):/, '')}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Date *</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} max={todayStr} disabled={!!editId} />
+            </div>
+            <div className="form-group">
+              <label>Hours Worked *</label>
+              <input type="number" min="0.5" max="24" step="0.5" value={hours} onChange={e => setHours(e.target.value)} placeholder="e.g. 8" />
+            </div>
+            <div className="form-group full">
+              <label>Project *</label>
+              <select value={project} onChange={e => setProject(e.target.value)}>
+                <option value="">Select project…</option>
+                {projects.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div className="form-group full">
+              <label>Task Description *</label>
+              <textarea value={task} onChange={e => setTask(e.target.value)} placeholder="Describe the work done today…" rows={3} />
+            </div>
+            <div className="form-group full">
+              <label>Remarks (optional)</label>
+              <input value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="e.g. Overtime, client call, etc." />
+            </div>
+          </div>
+          <div style={{ marginTop: 18 }}>
+            <button type="submit" className="btn btn-primary">
+              {editId ? '✓ Update Entry' : '+ Add Work Log'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Today's entries */}
+      {logs.length > 0 && (
+        <div className="card" style={{ maxWidth: 640, marginTop: 20 }}>
+          <div className="card-header"><span className="card-title">Today's Entries</span></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Project</th><th>Task</th><th>Hours</th><th>Remarks</th><th></th>
+              </tr></thead>
+              <tbody>
+                {logs.map(l => (
+                  <tr key={l.id} className={editId === l.id ? 'edit-row-active' : ''}>
+                    <td><span className="badge badge-blue">{l.project}</span></td>
+                    <td className="td-muted" style={{ maxWidth: 200 }}>{l.task}</td>
+                    <td className="td-mono">{fmtHours(l.hours)}</td>
+                    <td className="td-muted">{l.remarks || '—'}</td>
+                    <td>
+                      {canEdit && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => loadEdit(l)}>Edit</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MY HISTORY ───────────────────────────────────────────────────────────────
+
+function MyHistory({ user }) {
+  const [tab, setTab] = useState('monthly');
+  const [selMonth, setSelMonth] = useState(new Date().toISOString().slice(0, 7));
+
+  const allLogs = DB.logs().filter(l => l.userId === user.id);
+  const [year, month] = selMonth.split('-').map(Number);
+  const { start, end } = getMonthRange(year, month);
+
+  const filtered = tab === 'monthly'
+    ? allLogs.filter(l => l.date >= start && l.date <= end)
+    : allLogs;
+
+  const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+  const totalHours = filtered.reduce((s, l) => s + Number(l.hours), 0);
+  const byProject = {};
+  filtered.forEach(l => { byProject[l.project] = (byProject[l.project] || 0) + Number(l.hours); });
+
+  return (
+    <div className="page-content">
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', maxWidth: 640 }}>
+        <div className="stat-card"><div className="stat-label">Total Entries</div><div className="stat-value stat-accent">{filtered.length}</div></div>
+        <div className="stat-card"><div className="stat-label">Total Hours</div><div className="stat-value stat-success">{totalHours.toFixed(1)}</div></div>
+        <div className="stat-card"><div className="stat-label">Projects</div><div className="stat-value stat-purple">{Object.keys(byProject).length}</div></div>
+      </div>
+
+      <div className="tab-bar">
+        <button className={`tab-btn ${tab === 'monthly' ? 'active' : ''}`} onClick={() => setTab('monthly')}>Monthly</button>
+        <button className={`tab-btn ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>All Time</button>
+      </div>
+
+      {tab === 'monthly' && (
+        <div style={{ marginBottom: 16 }}>
+          <input type="month" value={selMonth} onChange={e => setSelMonth(e.target.value)} style={{ maxWidth: 200 }} />
+        </div>
+      )}
+
+      <div className="card">
+        <div className="table-wrap">
+          {sorted.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">◷</div><div className="empty-state-text">No entries found</div></div>
+          ) : (
+            <table>
+              <thead><tr>
+                <th>Date</th><th>Project</th><th>Task</th><th>Hours</th><th>Remarks</th>
+              </tr></thead>
+              <tbody>
+                {sorted.map(l => (
+                  <tr key={l.id}>
+                    <td className="td-mono">{fmtDate(l.date)}</td>
+                    <td><span className="badge badge-blue">{l.project}</span></td>
+                    <td className="td-muted">{l.task}</td>
+                    <td className="td-mono">{fmtHours(l.hours)}</td>
+                    <td className="td-muted">{l.remarks || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────────
+
+function Dashboard() {
+  const logs = DB.logs();
+  const users = DB.users().filter(u => u.role === 'employee');
+  const todayStr = today();
+  const todayLogs = logs.filter(l => l.date === todayStr);
+
+  const curMonth = new Date().toISOString().slice(0, 7);
+  const [cy, cm] = curMonth.split('-').map(Number);
+  const { start, end } = getMonthRange(cy, cm);
+  const monthLogs = logs.filter(l => l.date >= start && l.date <= end);
+
+  const totalHrsMonth = monthLogs.reduce((s, l) => s + Number(l.hours), 0);
+  const loggedToday = new Set(todayLogs.map(l => l.userId)).size;
+
+  // Per employee summary
+  const empSummary = users.map(u => {
+    const ml = monthLogs.filter(l => l.userId === u.id);
+    return { ...u, hours: ml.reduce((s, l) => s + Number(l.hours), 0), entries: ml.length };
+  }).sort((a, b) => b.hours - a.hours);
+
+  // Per project summary
+  const projMap = {};
+  monthLogs.forEach(l => { projMap[l.project] = (projMap[l.project] || 0) + Number(l.hours); });
+  const projSummary = Object.entries(projMap).sort((a, b) => b[1] - a[1]);
+  const maxProjHrs = projSummary[0]?.[1] || 1;
+
+  return (
+    <div className="page-content">
+      <div className="stats-grid">
+        <div className="stat-card"><div className="stat-label">Total Employees</div><div className="stat-value stat-accent">{users.length}</div><div className="stat-sub">active workforce</div></div>
+        <div className="stat-card"><div className="stat-label">Logged Today</div><div className="stat-value stat-success">{loggedToday} / {users.length}</div><div className="stat-sub">{todayStr}</div></div>
+        <div className="stat-card"><div className="stat-label">Hours This Month</div><div className="stat-value stat-warning">{totalHrsMonth.toFixed(0)}</div><div className="stat-sub">{monthLogs.length} entries</div></div>
+        <div className="stat-card"><div className="stat-label">Active Projects</div><div className="stat-value stat-purple">{projSummary.length}</div><div className="stat-sub">this month</div></div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Employee hours */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">Hours by Employee</span><span className="badge badge-amber">{curMonth}</span></div>
+          {empSummary.map(u => (
+            <div key={u.id} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="avatar avatar-emp" style={{ width: 24, height: 24, fontSize: 10 }}>{initials(u.name)}</div>
+                  <span style={{ fontSize: 13 }}>{u.name}</span>
+                </div>
+                <span className="td-mono" style={{ fontSize: 12 }}>{u.hours.toFixed(1)} h</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${Math.min(100, (u.hours / (totalHrsMonth || 1)) * 100 * users.length)}%`, background: 'var(--success)' }}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Project hours */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">Hours by Project</span></div>
+          {projSummary.slice(0, 8).map(([p, h]) => (
+            <div key={p} style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{p}</span>
+                <span className="td-mono" style={{ fontSize: 12 }}>{h.toFixed(1)} h</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${(h / maxProjHrs) * 100}%`, background: 'var(--accent)' }}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Today's activity */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header"><span className="card-title">Today's Activity</span></div>
+        {todayLogs.length === 0 ? (
+          <div className="empty-state"><div className="empty-state-text">No entries submitted today yet</div></div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Employee</th><th>Project</th><th>Task</th><th>Hours</th></tr></thead>
+              <tbody>
+                {todayLogs.map(l => (
+                  <tr key={l.id}>
+                    <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="avatar avatar-emp" style={{ width: 24, height: 24, fontSize: 10 }}>{initials(l.userName)}</div>
+                      {l.userName}
+                    </td>
+                    <td><span className="badge badge-blue">{l.project}</span></td>
+                    <td className="td-muted">{l.task}</td>
+                    <td className="td-mono">{fmtHours(l.hours)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ALL ENTRIES ──────────────────────────────────────────────────────────────
+
+function AllEntries() {
+  const [empFilter, setEmpFilter] = useState('');
+  const [projFilter, setProjFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [search, setSearch] = useState('');
+  const [editId, setEditId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const forceUpdate = useForceUpdate();
+
+  const users = DB.users().filter(u => u.role === 'employee');
+  const projects = DB.projects();
+
+  let logs = DB.logs();
+  if (empFilter) logs = logs.filter(l => l.userId === empFilter);
+  if (projFilter) logs = logs.filter(l => l.project === projFilter);
+  if (dateFrom) logs = logs.filter(l => l.date >= dateFrom);
+  if (dateTo) logs = logs.filter(l => l.date <= dateTo);
+  if (search) logs = logs.filter(l => l.task.toLowerCase().includes(search.toLowerCase()) || l.userName.toLowerCase().includes(search.toLowerCase()));
+  logs = [...logs].sort((a, b) => b.date.localeCompare(a.date));
+
+  function startEdit(l) {
+    setEditId(l.id);
+    setEditData({ project: l.project, task: l.task, hours: String(l.hours), remarks: l.remarks || '' });
+  }
+
+  function saveEdit(id) {
+    const all = DB.logs();
+    const idx = all.findIndex(l => l.id === id);
+    if (idx !== -1) {
+      all[idx] = { ...all[idx], ...editData, hours: parseFloat(editData.hours) };
+      DB.setLogs(all);
+    }
+    setEditId(null);
+    forceUpdate();
+  }
+
+  function deleteEntry(id) {
+    if (!confirm('Delete this entry?')) return;
+    DB.setLogs(DB.logs().filter(l => l.id !== id));
+    forceUpdate();
+  }
+
+  return (
+    <div className="page-content">
+      <div className="filters-row">
+        <input placeholder="🔍  Search task or name…" value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 220 }} />
+        <select value={empFilter} onChange={e => setEmpFilter(e.target.value)}>
+          <option value="">All Employees</option>
+          {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+        <select value={projFilter} onChange={e => setProjFilter(e.target.value)}>
+          <option value="">All Projects</option>
+          {projects.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+        <button className="btn btn-ghost btn-sm" onClick={() => { setEmpFilter(''); setProjFilter(''); setDateFrom(''); setDateTo(''); setSearch(''); }}>Clear</button>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">{logs.length} Entries</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => exportCSV(logs, 'work-logs.csv')}>⬇ CSV</button>
+            <button className="btn btn-success btn-sm" onClick={() => exportXLSX(logs, 'work-logs.xlsx')}>⬇ Excel</button>
+          </div>
+        </div>
+        <div className="table-wrap">
+          {logs.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">≡</div><div className="empty-state-text">No entries match filters</div></div>
+          ) : (
+            <table>
+              <thead><tr>
+                <th>Employee</th><th>Date</th><th>Project</th><th>Task</th><th>Hours</th><th>Remarks</th><th>Actions</th>
+              </tr></thead>
+              <tbody>
+                {logs.map(l => editId === l.id ? (
+                  <tr key={l.id} className="edit-row-active">
+                    <td>{l.userName}</td>
+                    <td className="td-mono">{fmtDate(l.date)}</td>
+                    <td>
+                      <select value={editData.project} onChange={e => setEditData({ ...editData, project: e.target.value })} style={{ minWidth: 140 }}>
+                        {projects.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </td>
+                    <td><input value={editData.task} onChange={e => setEditData({ ...editData, task: e.target.value })} /></td>
+                    <td><input type="number" value={editData.hours} onChange={e => setEditData({ ...editData, hours: e.target.value })} style={{ width: 70 }} /></td>
+                    <td><input value={editData.remarks} onChange={e => setEditData({ ...editData, remarks: e.target.value })} /></td>
+                    <td>
+                      <div className="action-btns">
+                        <button className="btn btn-success btn-sm" onClick={() => saveEdit(l.id)}>✓</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={l.id}>
+                    <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="avatar avatar-emp" style={{ width: 24, height: 24, fontSize: 10 }}>{initials(l.userName)}</div>
+                      {l.userName}
+                    </td>
+                    <td className="td-mono">{fmtDate(l.date)}</td>
+                    <td><span className="badge badge-blue">{l.project}</span></td>
+                    <td className="td-muted" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.task}</td>
+                    <td className="td-mono">{fmtHours(l.hours)}</td>
+                    <td className="td-muted">{l.remarks || '—'}</td>
+                    <td>
+                      <div className="action-btns">
+                        <button className="btn btn-ghost btn-sm" onClick={() => startEdit(l)}>Edit</button>
+                        <button className="btn btn-danger-ghost btn-sm" onClick={() => deleteEntry(l.id)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── REPORTS ──────────────────────────────────────────────────────────────────
+
+function Reports() {
+  const now = new Date();
+  const [selYear, setSelYear] = useState(now.getFullYear());
+  const [selMonth, setSelMonth] = useState(now.getMonth() + 1);
+  const [msg, setMsg] = useState('');
+
+  const { start, end } = getMonthRange(selYear, selMonth);
+  const logs = DB.logs().filter(l => l.date >= start && l.date <= end);
+  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date) || a.userName.localeCompare(b.userName));
+
+  const users = DB.users().filter(u => u.role === 'employee');
+  const projects = DB.projects();
+
+  // Per employee summary
+  const empSummary = users.map(u => {
+    const ul = logs.filter(l => l.userId === u.id);
+    return { name: u.name, hours: ul.reduce((s, l) => s + Number(l.hours), 0), entries: ul.length };
+  }).filter(u => u.hours > 0).sort((a, b) => b.hours - a.hours);
+
+  // Per project
+  const projMap = {};
+  logs.forEach(l => { projMap[l.project] = (projMap[l.project] || 0) + Number(l.hours); });
+  const projSummary = Object.entries(projMap).sort((a, b) => b[1] - a[1]);
+
+  const totalHours = logs.reduce((s, l) => s + Number(l.hours), 0);
+
+  function doExportXLSX() {
+    const fname = `WorkLog_${selYear}_${String(selMonth).padStart(2, '0')}.xlsx`;
+    exportXLSX(sorted, fname);
+    setMsg('ok:Excel report downloaded!');
+    setTimeout(() => setMsg(''), 3000);
+  }
+  function doExportCSV() {
+    const fname = `WorkLog_${selYear}_${String(selMonth).padStart(2, '0')}.csv`;
+    exportCSV(sorted, fname);
+    setMsg('ok:CSV report downloaded!');
+    setTimeout(() => setMsg(''), 3000);
+  }
+
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const years = [now.getFullYear(), now.getFullYear() - 1];
+
+  return (
+    <div className="page-content">
+      {/* Selector */}
+      <div className="card" style={{ marginBottom: 16, maxWidth: 560 }}>
+        <div className="card-header"><span className="card-title">Monthly Report</span></div>
+        {msg && <div className={`alert ${msg.startsWith('ok:') ? 'alert-success' : 'alert-danger'}`}>{msg.replace(/^(ok|error):/, '')}</div>}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select value={selMonth} onChange={e => setSelMonth(Number(e.target.value))} style={{ width: 160 }}>
+            {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+          </select>
+          <select value={selYear} onChange={e => setSelYear(Number(e.target.value))} style={{ width: 100 }}>
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <button className="btn btn-ghost btn-sm" onClick={doExportCSV}>⬇ CSV</button>
+          <button className="btn btn-success btn-sm" onClick={doExportXLSX}>⬇ Excel (.xlsx)</button>
+        </div>
+      </div>
+
+      {/* Summary stats */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 16 }}>
+        <div className="stat-card"><div className="stat-label">Total Hours</div><div className="stat-value stat-success">{totalHours.toFixed(1)}</div></div>
+        <div className="stat-card"><div className="stat-label">Entries</div><div className="stat-value stat-accent">{logs.length}</div></div>
+        <div className="stat-card"><div className="stat-label">Employees</div><div className="stat-value stat-purple">{empSummary.length}</div></div>
+        <div className="stat-card"><div className="stat-label">Projects</div><div className="stat-value stat-warning">{projSummary.length}</div></div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        {/* Per employee */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">Hours per Employee</span></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Employee</th><th>Entries</th><th>Hours</th></tr></thead>
+              <tbody>
+                {empSummary.map(e => (
+                  <tr key={e.name}>
+                    <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="avatar avatar-emp" style={{ width: 22, height: 22, fontSize: 9 }}>{initials(e.name)}</div>
+                      {e.name}
+                    </td>
+                    <td className="td-mono">{e.entries}</td>
+                    <td className="td-mono">{e.hours.toFixed(1)}</td>
+                  </tr>
+                ))}
+                <tr className="summary-row-total">
+                  <td>Total</td>
+                  <td className="td-mono">{logs.length}</td>
+                  <td className="td-mono">{totalHours.toFixed(1)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Per project */}
+        <div className="card">
+          <div className="card-header"><span className="card-title">Hours per Project</span></div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Project</th><th>Hours</th><th>Share</th></tr></thead>
+              <tbody>
+                {projSummary.map(([p, h]) => (
+                  <tr key={p}>
+                    <td><span className="badge badge-blue">{p}</span></td>
+                    <td className="td-mono">{h.toFixed(1)}</td>
+                    <td className="td-mono">{totalHours > 0 ? ((h / totalHours) * 100).toFixed(1) + '%' : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Full log preview */}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Full Log Preview — {months[selMonth - 1]} {selYear}</span>
+          <span className="badge badge-amber">{sorted.length} rows</span>
+        </div>
+        <div className="table-wrap">
+          {sorted.length === 0 ? (
+            <div className="empty-state"><div className="empty-state-icon">⊕</div><div className="empty-state-text">No logs for this period</div></div>
+          ) : (
+            <table>
+              <thead><tr>
+                <th>Employee</th><th>Date</th><th>Project</th><th>Task</th><th>Hours</th><th>Remarks</th>
+              </tr></thead>
+              <tbody>
+                {sorted.map(l => (
+                  <tr key={l.id}>
+                    <td>{l.userName}</td>
+                    <td className="td-mono">{fmtDate(l.date)}</td>
+                    <td><span className="badge badge-blue">{l.project}</span></td>
+                    <td className="td-muted">{l.task}</td>
+                    <td className="td-mono">{fmtHours(l.hours)}</td>
+                    <td className="td-muted">{l.remarks || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── EMPLOYEES ────────────────────────────────────────────────────────────────
+
+function Employees() {
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('employee');
+  const [pw, setPw] = useState('');
+  const [msg, setMsg] = useState('');
+  const forceUpdate = useForceUpdate();
+
+  const users = DB.users();
+  const logs = DB.logs();
+
+  function addEmployee(e) {
+    e.preventDefault();
+    if (!name || !email || !pw) return setMsg('error:All fields required.');
+    if (users.find(u => u.email === email)) return setMsg('error:Email already exists.');
+    const u = { id: genId(), name, email, password: pw, role };
+    DB.setUsers([...users, u]);
+    setName(''); setEmail(''); setPw(''); setRole('employee');
+    setShowAdd(false);
+    setMsg('ok:Employee added!');
+    forceUpdate();
+    setTimeout(() => setMsg(''), 3000);
+  }
+
+  function deleteUser(id) {
+    if (!confirm('Remove this employee?')) return;
+    DB.setUsers(DB.users().filter(u => u.id !== id));
+    forceUpdate();
+  }
+
+  return (
+    <div className="page-content">
+      {msg && <div className={`alert ${msg.startsWith('ok:') ? 'alert-success' : 'alert-danger'}`} style={{ maxWidth: 600 }}>{msg.replace(/^(ok|error):/, '')}</div>}
+
+      <div className="card" style={{ maxWidth: 800 }}>
+        <div className="card-header">
+          <span className="card-title">Team ({users.length})</span>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(v => !v)}>+ Add Employee</button>
+        </div>
+
+        {showAdd && (
+          <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: 18, marginBottom: 18 }}>
+            <form onSubmit={addEmployee}>
+              <div className="form-grid">
+                <div className="form-group"><label>Full Name *</label><input value={name} onChange={e => setName(e.target.value)} /></div>
+                <div className="form-group"><label>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} /></div>
+                <div className="form-group"><label>Password *</label><input type="password" value={pw} onChange={e => setPw(e.target.value)} /></div>
+                <div className="form-group">
+                  <label>Role</label>
+                  <select value={role} onChange={e => setRole(e.target.value)}>
+                    <option value="employee">Employee</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+                <button type="submit" className="btn btn-primary btn-sm">Add</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Total Logs</th><th>Total Hours</th><th></th></tr></thead>
+            <tbody>
+              {users.map(u => {
+                const ul = logs.filter(l => l.userId === u.id);
+                const hrs = ul.reduce((s, l) => s + Number(l.hours), 0);
+                return (
+                  <tr key={u.id}>
+                    <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className={`avatar ${u.role === 'admin' ? 'avatar-admin' : 'avatar-emp'}`} style={{ width: 28, height: 28, fontSize: 11 }}>{initials(u.name)}</div>
+                      {u.name}
+                    </td>
+                    <td className="td-muted">{u.email}</td>
+                    <td><span className={`badge ${u.role === 'admin' ? 'badge-purple' : 'badge-green'}`}>{u.role}</span></td>
+                    <td className="td-mono">{ul.length}</td>
+                    <td className="td-mono">{hrs.toFixed(1)} h</td>
+                    <td>
+                      {u.role !== 'admin' && (
+                        <button className="btn btn-danger-ghost btn-sm" onClick={() => deleteUser(u.id)}>Remove</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PAGE TITLES ─────────────────────────────────────────────────────────────
+
+const PAGE_META = {
+  log: { title: 'Log Work', sub: 'Submit your daily work entry' },
+  history: { title: 'My History', sub: 'Your personal work records' },
+  dashboard: { title: 'Dashboard', sub: 'Overview & today\'s activity' },
+  entries: { title: 'All Entries', sub: 'View, filter and edit logs' },
+  reports: { title: 'Monthly Reports', sub: 'Export billing reports' },
+  employees: { title: 'Employees', sub: 'Manage team members' },
+};
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [user, setUser] = useState(DB.session());
+  const [page, setPage] = useState(null);
+
+  useEffect(() => {
+    if (user) setPage(user.role === 'admin' ? 'dashboard' : 'log');
+  }, [user]);
+
+  function handleLogin(u) { setUser(u); }
+  function handleLogout() { DB.clearSession(); setUser(null); setPage(null); }
+
+  if (!user) return <AuthScreen onLogin={handleLogin} />;
+
+  const meta = PAGE_META[page] || {};
+
+  function renderPage() {
+    switch (page) {
+      case 'log': return <LogWork user={user} />;
+      case 'history': return <MyHistory user={user} />;
+      case 'dashboard': return <Dashboard />;
+      case 'entries': return <AllEntries />;
+      case 'reports': return <Reports />;
+      case 'employees': return <Employees />;
+      default: return null;
+    }
+  }
+
+  return (
+    <div className="layout">
+      <Sidebar user={user} page={page} onPage={setPage} onLogout={handleLogout} />
+      <div className="main">
+        <div className="topbar">
+          <div>
+            <div className="topbar-title">{meta.title}</div>
+            <div className="topbar-meta">{meta.sub}</div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+          </div>
+        </div>
+        {renderPage()}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
