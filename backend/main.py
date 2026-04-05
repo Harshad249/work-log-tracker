@@ -43,37 +43,46 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./worklog.db")
 
 # ─── DATABASE ────────────────────────────────────────────────────────────────
 
-database  = databases.Database(DATABASE_URL)
-metadata  = sqlalchemy.MetaData()
+# ─── DATABASE ────────────────────────────────────────────────────────────────
 
-users_table = sqlalchemy.Table("users", metadata,
-    sqlalchemy.Column("id",         sqlalchemy.String,  primary_key=True),
-    sqlalchemy.Column("name",       sqlalchemy.String,  nullable=False),
-    sqlalchemy.Column("email",      sqlalchemy.String,  unique=True, nullable=False),
-    sqlalchemy.Column("hashed_pw",  sqlalchemy.String,  nullable=False),
-    sqlalchemy.Column("role",       sqlalchemy.String,  default="employee"),
+import databases
+import sqlalchemy
+from datetime import datetime
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+database = databases.Database(DATABASE_URL)
+metadata = sqlalchemy.MetaData()
+
+# ─── USERS TABLE ─────────────────────────────────────────────────────────────
+
+users_table = sqlalchemy.Table(
+    "users",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.String, primary_key=True),
+    sqlalchemy.Column("name", sqlalchemy.String, nullable=False),
+    sqlalchemy.Column("email", sqlalchemy.String, unique=True, nullable=False),
+    sqlalchemy.Column("hashed_pw", sqlalchemy.String, nullable=False),
+    sqlalchemy.Column("role", sqlalchemy.String, default="employee"),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, default=datetime.utcnow),
 )
-from sqlalchemy import create_engine
-engine = create_engine(DATABASE_URL)
-metadata.create_all(engine)
 
-logs_table = sqlalchemy.Table("work_logs", metadata,
-    sqlalchemy.Column("id",         sqlalchemy.String,  primary_key=True),
-    sqlalchemy.Column("user_id",    sqlalchemy.String,  nullable=False),
-    sqlalchemy.Column("user_name",  sqlalchemy.String,  nullable=False),
-    sqlalchemy.Column("date",       sqlalchemy.Date,    nullable=False),
-    sqlalchemy.Column("project",    sqlalchemy.String,  nullable=False),
-    sqlalchemy.Column("task",       sqlalchemy.Text,    nullable=False),
-    sqlalchemy.Column("hours",      sqlalchemy.Float,   nullable=False),
-    sqlalchemy.Column("remarks",    sqlalchemy.String,  default=""),
+# ─── WORK LOGS TABLE ─────────────────────────────────────────────────────────
+
+logs_table = sqlalchemy.Table(
+    "work_logs",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.String, primary_key=True),
+    sqlalchemy.Column("user_id", sqlalchemy.String, nullable=False),
+    sqlalchemy.Column("user_name", sqlalchemy.String, nullable=False),
+    sqlalchemy.Column("date", sqlalchemy.Date, nullable=False),
+    sqlalchemy.Column("project", sqlalchemy.String, nullable=False),
+    sqlalchemy.Column("task", sqlalchemy.Text, nullable=False),
+    sqlalchemy.Column("hours", sqlalchemy.Float, nullable=False),
+    sqlalchemy.Column("remarks", sqlalchemy.String, default=""),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, default=datetime.utcnow),
     sqlalchemy.Column("updated_at", sqlalchemy.DateTime, default=datetime.utcnow),
 )
-
-engine = sqlalchemy.create_engine(DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://"))
-metadata.create_all(engine)
-
 # ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -173,11 +182,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    try:
-        await database.connect()
-        print("✅ Database connected")
-    except Exception as e:
-        print("❌ DB ERROR:", e)
+    await database.connect()
+    print("✅ Database connected")
 
 @app.on_event("shutdown")
 async def shutdown():
