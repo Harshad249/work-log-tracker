@@ -173,7 +173,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    await database.connect()
+    try:
+        await database.connect()
+        print("✅ Database connected")
+    except Exception as e:
+        print("❌ DB ERROR:", e)
 
 @app.on_event("shutdown")
 async def shutdown():
