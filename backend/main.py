@@ -169,6 +169,9 @@ class Token(BaseModel):
     user: UserOut
 
 # ─── APP ─────────────────────────────────────────────────────────────────────
+@app.get("/")
+def root():
+    return {"message": "API is running 🚀"}
 
 app = FastAPI(title="WorkLog API", version="1.0.0", docs_url="/docs")
 
