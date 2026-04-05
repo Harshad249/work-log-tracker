@@ -13,6 +13,9 @@ app = FastAPI()
 @app.get("/")
 def root():
     return {"message": "Backend is live 🚀"}
+@app.get("/test")
+def test():
+    return {"status": "working"}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
