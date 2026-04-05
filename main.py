@@ -8,17 +8,15 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 from fastapi import FastAPI, HTTPException, Depends, status
 
-from fastapi.middleware.cors import CORSMiddleware
-app = FastAPI()
+
+
 @app.get("/")
 def root():
     return {"message": "Backend is live 🚀"}
 @app.get("/test")
 def test():
     return {"status": "working"}
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -61,6 +59,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
+from sqlalchemy import create_engine
+
+sync_engine = create_engine(
+    DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+)
 
 # ─── USERS TABLE ─────────────────────────────────────────────────────────────
 
@@ -191,6 +194,10 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     try:
+        # create tables (safe)
+        metadata.create_all(sync_engine)
+
+        # connect async DB
         await database.connect()
         print("✅ DB connected")
     except Exception as e:
