@@ -10,7 +10,9 @@ from fastapi import FastAPI, HTTPException, Depends, status
 
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
-
+@app.get("/")
+def root():
+    return {"message": "Backend is live 🚀"}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -169,9 +171,6 @@ class Token(BaseModel):
     user: UserOut
 
 # ─── APP ─────────────────────────────────────────────────────────────────────
-@app.get("/")
-def root():
-    return {"message": "API is running 🚀"}
 
 app = FastAPI(title="WorkLog API", version="1.0.0", docs_url="/docs")
 
