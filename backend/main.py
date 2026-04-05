@@ -16,6 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 from fastapi import FastAPI, HTTPException, Depends, status
+app = FastAPI()
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
