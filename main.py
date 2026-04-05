@@ -16,6 +16,9 @@ def root():
 @app.get("/test")
 def test():
     return {"status": "working"}
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -187,8 +190,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    await database.connect()
-    print("✅ Database connected")
+    try:
+        await database.connect()
+        print("✅ DB connected")
+    except Exception as e:
+        print("❌ DB FAILED:", e)
 
 @app.on_event("shutdown")
 async def shutdown():
